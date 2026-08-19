@@ -1,0 +1,19 @@
+{
+  "name": "ci-watch-mcp",
+  "version": "0.1.0",
+  "description": "MCP-сервер з одним інструментом watch_ci: чекає завершення GitHub Actions CI для поточного коміту й одразу повертає лог помилки за провалу.",
+  "type": "module",
+  "bin": {
+    "ci-watch-mcp": "./src/server.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/smoke.mjs"
+  },
+  "license": "MIT",
+  "author": "Faneraiy14",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.24.0"
+  }
+}
