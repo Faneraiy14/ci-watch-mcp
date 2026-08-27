@@ -1,6 +1,6 @@
 {
   "name": "ci-watch-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP-сервер з одним інструментом watch_ci: чекає завершення GitHub Actions CI для поточного коміту й одразу повертає лог помилки за провалу.",
   "type": "module",
   "bin": {
