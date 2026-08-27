@@ -1,63 +1,65 @@
 # ci-watch-mcp
 
-MCP-сервер із одним інструментом `watch_ci` — чекає, поки GitHub Actions
-CI завершиться для коміту в локальному git-репозиторії, і одним викликом
-повертає підсумок разом із логом помилки, якщо щось впало.
+*[Українською](README.uk.md)*
 
-## Навіщо
+An MCP server with a single tool, `watch_ci` — it waits for GitHub Actions
+CI to finish for a commit in a local git repository, and returns a summary
+plus the failure log (if something broke) in one call.
 
-Без цього перевірка "чи пройшов CI після мого пушу" — це вручну:
-push → sleep → `gh run list` → якщо в статусі "in_progress", ще sleep →
-знову `gh run list` → якщо `conclusion: failure`, окремий виклик
-`gh run view <id> --log-failed`, щоб побачити, що саме зламалось.
-`watch_ci` робить усе це за один виклик і одразу повертає лог провалу,
-без ручного циклу очікування.
+## Why
 
-## Інструмент
+Without this, checking "did CI pass after my push" is manual work:
+push → sleep → `gh run list` → if the status is "in_progress", sleep again →
+`gh run list` again → if `conclusion: failure`, a separate call to
+`gh run view <id> --log-failed` to see exactly what broke.
+`watch_ci` does all of that in a single call and returns the failure log
+right away, with no manual polling loop.
+
+## Tool
 
 ### `watch_ci`
 
-| Параметр | Тип | За замовчуванням | Опис |
+| Parameter | Type | Default | Description |
 |---|---|---|---|
-| `cwd` | string | — (обов'язковий) | Шлях до локального клону репозиторію з `origin` на GitHub |
-| `ref` | string | `HEAD` | SHA (повний чи короткий) або будь-який git-ref |
-| `workflow` | string | — | Фільтр за назвою workflow, якщо в репо їх декілька |
-| `timeout_ms` | number | `300000` (5 хв) | Стеля `1200000` (20 хв) |
-| `poll_interval_ms` | number | `5000` | Інтервал опитування `gh run list` |
+| `cwd` | string | — (required) | Path to a local clone of a repository with an `origin` on GitHub |
+| `ref` | string | `HEAD` | SHA (full or short) or any git ref |
+| `workflow` | string | — | Filter by workflow name, if the repo has more than one |
+| `timeout_ms` | number | `300000` (5 min) | Capped at `1200000` (20 min) |
+| `poll_interval_ms` | number | `5000` | Polling interval for `gh run list` |
 
-Повертає:
-- `{ ok: true, conclusion: "success", url, sha, workflowName }` — CI пройшов;
-- `{ ok: false, conclusion: "failure", url, sha, workflowName, failedLogs }` — CI впав, `failedLogs` — хвіст `gh run view --log-failed` (обрізаний до 8000 символів, з кінця — там найінформативніше);
-- `{ ok: false, timedOut: true, status, url, message }` — не встиг завершитись/стартувати за відведений час.
+Returns:
+- `{ ok: true, conclusion: "success", url, sha, workflowName }` — CI passed;
+- `{ ok: false, conclusion: "failure", url, sha, workflowName, failedLogs }` — CI failed, `failedLogs` is the tail of `gh run view --log-failed` (truncated to 8000 characters, kept from the end — that's where the most useful info is);
+- `{ ok: false, timedOut: true, status, url, message }` — didn't finish/start in the allotted time.
 
-Якщо `ref` не резолвиться в реальний коміт (одруківка в SHA), інструмент
-одразу кидає помилку замість мовчазного очікування до таймауту.
+If `ref` doesn't resolve to a real commit (a typo in the SHA), the tool
+throws an error immediately instead of silently waiting until the timeout.
 
-## Встановлення
+## Installation
 
 ```bash
 cd ci-watch-mcp
 npm install
 ```
 
-Підключення до Claude Code:
+Connecting it to Claude Code:
 
 ```bash
-claude mcp add ci-watch -s user -- node /шлях/до/ci-watch-mcp/src/server.js
+claude mcp add ci-watch -s user -- node /path/to/ci-watch-mcp/src/server.js
 ```
 
-Потрібен встановлений і автентифікований `gh` CLI (`gh auth status`).
+Requires the `gh` CLI installed and authenticated (`gh auth status`).
 
-## Тести
+## Tests
 
 ```bash
 npm test
 ```
 
-Ганяються проти вже завершених реальних запусків у репозиторії
-`secretscan` (успішний, провалений, і коміт без жодного CI-запуску) —
-без потреби чекати живий пуш.
+They run against already-completed real runs in the `secretscan` repository
+(a successful one, a failed one, and a commit with no CI run at all) —
+no need to wait for a live push.
 
-## Ліцензія
+## License
 
 MIT — Faneraiy14.
