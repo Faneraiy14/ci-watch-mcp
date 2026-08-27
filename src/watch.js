@@ -28,6 +28,80 @@ async function gh(args, cwd) {
     }
 }
 
+// Прибирає ISO-таймстемп на початку кожного рядка логу
+// ("2026-08-19T11:54:01.8569953Z ...") - шум, що займає чверть бюджету
+// MAX_LOG_CHARS і не несе сенсу для читача (AI-асистент чи людина), якого
+// цікавить ЩО впало, а не мілісекунда, коли рядок долетів до буфера.
+function stripLogTimestamps(text) {
+    return text.replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z /gm, '');
+}
+
+// Просте обрізання по "хвосту" (останні N символів) ненадійне для логів
+// CI: після реальної помилки крокy зазвичай іде ПОСТ-job прибирання
+// (Post Run actions/checkout, git config --unset тощо) - може бути довшим
+// за саму помилку й виштовхнути ##[error] за межі вікна повністю. Замість
+// цього шукаємо ОСТАННЄ входження "##[error]" (маркер GitHub Actions для
+// падіння кроку) і тримаємо вікно НАВКОЛО нього - трохи контексту до, весь
+// бюджет після. Якщо маркера нема (нетиповий формат падіння) - звичайний
+// хвіст як безпечний фолбек.
+function truncateAroundError(text, budget) {
+    if (text.length <= budget) return text;
+
+    const markerIdx = text.lastIndexOf('##[error]');
+    if (markerIdx === -1) {
+        return `...(обрізано, показано останні ${budget} символів)...\n` + text.slice(-budget);
+    }
+
+    const before = Math.min(500, markerIdx);
+    const start = markerIdx - before;
+    const sliced = text.slice(start, start + budget);
+    const prefix = start > 0 ? `...(обрізано)...\n` : '';
+    const suffix = start + budget < text.length ? `\n...(обрізано)...` : '';
+    return prefix + sliced + suffix;
+}
+
+// gh run view --log-failed - емпірично ненадійна: на реальному провальному
+// запуску (secretscan, run 32249846187) повертає ПОРОЖНІЙ рядок з exitCode
+// 0, БЕЗ жодної помилки в stderr - хоча gh run view (без --log) сам же
+// підказує "To see what failed, try: gh run view <id> --log-failed", і
+// сирі логи РЕАЛЬНО є на GitHub (перевірено напряму: gh api .../jobs/<id>/
+// logs повертає повний текст логу, 200 OK). Це не протухлі/видалені логи
+// (сталось на запуску 8-денної давності, задовго до 90-денного retention),
+// а конкретний баг команди `--log-failed` у gh CLI 2.46.0. Тому - напряму
+// REST API на кожен job з conclusion "failure", а не покладатись на цю
+// команду взагалі.
+async function fetchFailedJobLogs(cwd, run) {
+    const nameWithOwner = (await gh(['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'], cwd)).trim();
+
+    const jobsJson = await gh(['run', 'view', String(run.databaseId), '--json', 'jobs'], cwd);
+    const { jobs } = JSON.parse(jobsJson);
+    const failedJobs = jobs.filter((j) => j.conclusion === 'failure');
+
+    if (failedJobs.length === 0) {
+        // Увесь run провалився, але жоден job не позначений failure окремо
+        // (напр. сам workflow-файл не розпарсився) - логів на рівні job
+        // тоді нема що тягнути.
+        return '(жоден job не позначений як failure - можливо, помилка в самому workflow-файлі; дивись url)';
+    }
+
+    // Бюджет ділиться порівну між провальними job - інакше один job із
+    // шумним хвостом міг би одноосібно виїсти весь MAX_LOG_CHARS і
+    // залишити інші зовсім без місця.
+    const perJobBudget = Math.floor(MAX_LOG_CHARS / failedJobs.length);
+
+    const parts = [];
+    for (const job of failedJobs) {
+        try {
+            const raw = await gh(['api', `repos/${nameWithOwner}/actions/jobs/${job.databaseId}/logs`], cwd);
+            const cleaned = truncateAroundError(stripLogTimestamps(raw), perJobBudget);
+            parts.push(`--- job "${job.name}" ---\n${cleaned}`);
+        } catch (err) {
+            parts.push(`--- job "${job.name}" ---\n(не вдалося отримати лог: ${err.message})`);
+        }
+    }
+    return parts.join('\n\n');
+}
+
 // Приймає і повний SHA, і короткий (напр. з git log --oneline), і "HEAD" -
 // завжди повертає повний 40-символьний SHA, бо саме такий формат віддає
 // gh run list у полі headSha (порівняння коротких з повними завжди false).
@@ -86,7 +160,7 @@ export async function watchCi({
 
                 let failedLogs;
                 try {
-                    failedLogs = await gh(['run', 'view', String(run.databaseId), '--log-failed'], cwd);
+                    failedLogs = await fetchFailedJobLogs(cwd, run);
                 } catch (err) {
                     failedLogs = `(не вдалося отримати лог: ${err.message})`;
                 }

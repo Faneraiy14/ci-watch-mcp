@@ -21,6 +21,13 @@ test('watchCi: провалений завершений запуск повер
     assert.equal(result.ok, false);
     assert.equal(result.conclusion, 'failure');
     assert.ok(typeof result.failedLogs === 'string' && result.failedLogs.length > 0);
+    // Регресія: `gh run view --log-failed` на цьому саме коміті емпірично
+    // повертає ПОРОЖНІЙ рядок без помилки (gh CLI 2.46.0 - логи реально є
+    // на GitHub, перевірено напряму через REST API), тож watchCi() мусить
+    // діставати лог напряму через `gh api .../jobs/<id>/logs`, а не
+    // покладатись на цю команду. Якщо колись хтось "спростить" фікс назад
+    // до --log-failed - цей тест має впасти.
+    assert.match(result.failedLogs, /##\[error\]/);
 });
 
 test('watchCi: коміт без жодного CI-запуску повертає timedOut після короткого таймауту', async () => {
