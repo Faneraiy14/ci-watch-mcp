@@ -50,6 +50,15 @@ claude mcp add ci-watch -s user -- node /path/to/ci-watch-mcp/src/server.js
 
 Requires the `gh` CLI installed and authenticated (`gh auth status`).
 
+Cross-platform — plain Node.js shelling out to `gh`, which runs natively
+on Windows too. No platform-specific code path.
+
+### Updating
+
+No separate build/publish step — `claude mcp add` points straight at this
+checkout's `src/server.js`, so updating is just `git pull && npm install`,
+taking effect on the next new Claude Code session.
+
 ## Tests
 
 ```bash
