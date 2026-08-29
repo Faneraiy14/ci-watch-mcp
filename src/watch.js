@@ -44,7 +44,7 @@ function stripLogTimestamps(text) {
 // падіння кроку) і тримаємо вікно НАВКОЛО нього - трохи контексту до, весь
 // бюджет після. Якщо маркера нема (нетиповий формат падіння) - звичайний
 // хвіст як безпечний фолбек.
-function truncateAroundError(text, budget) {
+export function truncateAroundError(text, budget) {
     if (text.length <= budget) return text;
 
     const markerIdx = text.lastIndexOf('##[error]');
@@ -86,8 +86,15 @@ async function fetchFailedJobLogs(cwd, run) {
 
     // Бюджет ділиться порівну між провальними job - інакше один job із
     // шумним хвостом міг би одноосібно виїсти весь MAX_LOG_CHARS і
-    // залишити інші зовсім без місця.
-    const perJobBudget = Math.floor(MAX_LOG_CHARS / failedJobs.length);
+    // залишити інші зовсім без місця. HEADER_OVERHEAD резервує місце під
+    // `--- job "..." ---\n` + маркери "...(обрізано)..." навколо кожного
+    // шматка - без цього резерву сума частин стабільно перевищувала
+    // MAX_LOG_CHARS (перевірено: при ≥4 провалених job перевищення
+    // ставало досить великим, щоб зовнішнє аварійне обрізання нижче
+    // з'їдало ##[error] першого job - точно той наївний "хвіст", від
+    // якого мав рятувати truncateAroundError).
+    const HEADER_OVERHEAD = 100;
+    const perJobBudget = Math.max(200, Math.floor(MAX_LOG_CHARS / failedJobs.length) - HEADER_OVERHEAD);
 
     const parts = [];
     for (const job of failedJobs) {
@@ -165,7 +172,12 @@ export async function watchCi({
                     failedLogs = `(не вдалося отримати лог: ${err.message})`;
                 }
                 if (failedLogs.length > MAX_LOG_CHARS) {
-                    failedLogs = `...(обрізано, показано останні ${MAX_LOG_CHARS} символів)...\n` + failedLogs.slice(-MAX_LOG_CHARS);
+                    // Аварійний запасний варіант (per-job бюджет із запасом
+                    // мав би вже вкластись у MAX_LOG_CHARS) - той самий
+                    // marker-aware truncateAroundError, а НЕ сліпий хвіст,
+                    // інакше саме тут і повертається баг, від якого рятує
+                    // truncateAroundError на рівні окремого job.
+                    failedLogs = truncateAroundError(failedLogs, MAX_LOG_CHARS);
                 }
 
                 return {
