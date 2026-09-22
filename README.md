@@ -29,7 +29,7 @@ right away, with no manual polling loop.
 
 Returns:
 - `{ ok: true, conclusion: "success", url, sha, workflowName }` — CI passed;
-- `{ ok: false, conclusion: "failure", url, sha, workflowName, failedLogs }` — CI failed, `failedLogs` is the tail of `gh run view --log-failed` (truncated to 8000 characters, kept from the end — that's where the most useful info is);
+- `{ ok: false, conclusion: "failure", url, sha, workflowName, failedLogs }` — CI failed, `failedLogs` is fetched per failed job directly via the GitHub REST API (`gh run view --log-failed` turned out to be unreliable and was dropped) and truncated to a window around each job's last `##[error]` marker rather than a blind tail cut, capped at 8000 characters total, split evenly across failed jobs;
 - `{ ok: false, timedOut: true, status, url, message }` — didn't finish/start in the allotted time.
 
 If `ref` doesn't resolve to a real commit (a typo in the SHA), the tool

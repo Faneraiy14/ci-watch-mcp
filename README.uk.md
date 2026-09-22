@@ -29,7 +29,7 @@ push → sleep → `gh run list` → якщо в статусі "in_progress", �
 
 Повертає:
 - `{ ok: true, conclusion: "success", url, sha, workflowName }` — CI пройшов;
-- `{ ok: false, conclusion: "failure", url, sha, workflowName, failedLogs }` — CI впав, `failedLogs` — хвіст `gh run view --log-failed` (обрізаний до 8000 символів, з кінця — там найінформативніше);
+- `{ ok: false, conclusion: "failure", url, sha, workflowName, failedLogs }` — CI впав, `failedLogs` тягнеться напряму через GitHub REST API окремо для кожного провального job (`gh run view --log-failed` виявилась ненадійною, тож від неї відмовились) і обрізається НАВКОЛО маркера `##[error]` кожного job, а не сліпо по хвосту, сумарно до 8000 символів, порівну між провальними job;
 - `{ ok: false, timedOut: true, status, url, message }` — не встиг завершитись/стартувати за відведений час.
 
 Якщо `ref` не резолвиться в реальний коміт (одруківка в SHA), інструмент
