@@ -79,6 +79,16 @@ docker run -i --rm -e GH_TOKEN=<token> -v "$PWD:/repo" -w /repo ci-watch-mcp
 The server speaks MCP over stdio, so keep `-i`. Needs: `GH_TOKEN` (GitHub token for `gh`) and the repo mounted at `/repo` - the server reads its git state and CI runs.
 In an MCP client config use `"command": "docker"` with the same arguments.
 
+## Startup timeout
+
+The server itself starts in about a second, but a client launching several MCP servers at once on a cold machine (right after boot) can hit Claude Code's default 30-second startup limit and mark it "failed". That limit belongs to the client, not to the server, so raise it there - in `~/.claude/settings.json`:
+
+```json
+{ "env": { "MCP_TIMEOUT": "120000" } }
+```
+
+(or start Claude Code as `MCP_TIMEOUT=120000 claude`). Takes effect in the next session.
+
 ## License
 
 MIT — Faneraiy14.
