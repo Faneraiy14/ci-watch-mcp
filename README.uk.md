@@ -70,6 +70,16 @@ npm test
 `secretscan` (успішний, провалений, і коміт без жодного CI-запуску) —
 без потреби чекати живий пуш.
 
+## Docker
+
+```bash
+docker build -t ci-watch-mcp .
+docker run -i --rm -e GH_TOKEN=<token> -v "$PWD:/repo" -w /repo ci-watch-mcp
+```
+
+Сервер працює з MCP через stdio, тож `-i` обов'язковий. Потрібно: `GH_TOKEN` (токен GitHub для `gh`) і репозиторій, примонтований у `/repo`: сервер читає його git-стан і запуски CI.
+У конфігу MCP-клієнта: `"command": "docker"` з тими самими аргументами.
+
 ## Ліцензія
 
 MIT — Faneraiy14.

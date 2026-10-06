@@ -69,6 +69,16 @@ They run against already-completed real runs in the `secretscan` repository
 (a successful one, a failed one, and a commit with no CI run at all) —
 no need to wait for a live push.
 
+## Docker
+
+```bash
+docker build -t ci-watch-mcp .
+docker run -i --rm -e GH_TOKEN=<token> -v "$PWD:/repo" -w /repo ci-watch-mcp
+```
+
+The server speaks MCP over stdio, so keep `-i`. Needs: `GH_TOKEN` (GitHub token for `gh`) and the repo mounted at `/repo` - the server reads its git state and CI runs.
+In an MCP client config use `"command": "docker"` with the same arguments.
+
 ## License
 
 MIT — Faneraiy14.
